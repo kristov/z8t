@@ -71,84 +71,130 @@ void z8t_memdump(struct z8t_t* z8t, uint16_t len) {
     }
 }
 
+static void is_equal_uint16(struct z8t_t* z8t, uint16_t provided, uint16_t desired, const char* test_name) {
+    if (provided != desired) {
+        z8t->failures++;
+        fprintf(stderr, "FAIL: %s\n", test_name);
+        fprintf(stderr, "    provided: %d, desired: %d\n", provided, desired);
+    }
+    else {
+        z8t->passes++;
+        fprintf(stderr, "pass: %s\n", test_name);
+    }
+}
+
+static void is_equal_uint8(struct z8t_t* z8t, uint8_t provided, uint8_t desired, const char* test_name) {
+    if (provided != desired) {
+        z8t->failures++;
+        fprintf(stderr, "FAIL: %s\n", test_name);
+        fprintf(stderr, "    provided: %d, desired: %d\n", provided, desired);
+    }
+    else {
+        z8t->passes++;
+        fprintf(stderr, "pass: %s\n", test_name);
+    }
+}
+
+void z8t_report(struct z8t_t* z8t) {
+    fprintf(stderr, "Ran %d tests:\n", z8t->failures + z8t->passes);
+    fprintf(stderr, "  %d Failures\n", z8t->failures);
+    fprintf(stderr, "  %d Passes\n", z8t->passes);
+    if (0 == z8t->failures) {
+        fprintf(stderr, "-- ALL TESTS PASS --\n");
+    }
+    else {
+        fprintf(stderr, "-- SOME TESTS FAILED --\n");
+    }
+    fprintf(stderr, "CYCLES: %d\n", z8t->clock_cycles);
+}
+
 void z8t_reg_a_is(struct z8t_t* z8t, uint8_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regAF);
     uint8_t reg8 = (uint8_t)(reg16 >> 8);
-    cck_is_equal_uint8(z8t->cck, reg8, desired, test_name);
+    is_equal_uint8(z8t, reg8, desired, test_name);
 }
 
 void z8t_reg_b_is(struct z8t_t* z8t, uint8_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regBC);
     uint8_t reg8 = (uint8_t)(reg16 >> 8);
-    cck_is_equal_uint8(z8t->cck, reg8, desired, test_name);
+    is_equal_uint8(z8t, reg8, desired, test_name);
 }
 
 void z8t_reg_c_is(struct z8t_t* z8t, uint8_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regBC);
     uint8_t reg8 = (uint8_t)(reg16 & 0xff);
-    cck_is_equal_uint8(z8t->cck, reg8, desired, test_name);
+    is_equal_uint8(z8t, reg8, desired, test_name);
 }
 
 void z8t_reg_bc_is(struct z8t_t* z8t, uint16_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regBC);
-    cck_is_equal_uint16(z8t->cck, reg16, desired, test_name);
+    is_equal_uint16(z8t, reg16, desired, test_name);
 }
 
 void z8t_reg_d_is(struct z8t_t* z8t, uint8_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regDE);
     uint8_t reg8 = (uint8_t)(reg16 >> 8);
-    cck_is_equal_uint8(z8t->cck, reg8, desired, test_name);
+    is_equal_uint8(z8t, reg8, desired, test_name);
 }
 
 void z8t_reg_e_is(struct z8t_t* z8t, uint8_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regDE);
     uint8_t reg8 = (uint8_t)(reg16 & 0xff);
-    cck_is_equal_uint8(z8t->cck, reg8, desired, test_name);
+    is_equal_uint8(z8t, reg8, desired, test_name);
 }
 
 void z8t_reg_de_is(struct z8t_t* z8t, uint16_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regDE);
-    cck_is_equal_uint16(z8t->cck, reg16, desired, test_name);
+    is_equal_uint16(z8t, reg16, desired, test_name);
 }
 
 void z8t_reg_h_is(struct z8t_t* z8t, uint8_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regHL);
     uint8_t reg8 = (uint8_t)(reg16 >> 8);
-    cck_is_equal_uint8(z8t->cck, reg8, desired, test_name);
+    is_equal_uint8(z8t, reg8, desired, test_name);
 }
 
 void z8t_reg_l_is(struct z8t_t* z8t, uint8_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regHL);
     uint8_t reg8 = (uint8_t)(reg16 & 0xff);
-    cck_is_equal_uint8(z8t->cck, reg8, desired, test_name);
+    is_equal_uint8(z8t, reg8, desired, test_name);
 }
 
 void z8t_reg_hl_is(struct z8t_t* z8t, uint16_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regHL);
-    cck_is_equal_uint16(z8t->cck, reg16, desired, test_name);
+    is_equal_uint16(z8t, reg16, desired, test_name);
 }
 
 void z8t_reg_ix_is(struct z8t_t* z8t, uint16_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regIX);
-    cck_is_equal_uint16(z8t->cck, reg16, desired, test_name);
+    is_equal_uint16(z8t, reg16, desired, test_name);
 }
 
 void z8t_reg_iy_is(struct z8t_t* z8t, uint16_t desired, const char* test_name) {
     uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, regIY);
-    cck_is_equal_uint16(z8t->cck, reg16, desired, test_name);
+    is_equal_uint16(z8t, reg16, desired, test_name);
 }
 
 uint32_t z8t_run(struct z8t_t* z8t, uint32_t steps) {
-    uint32_t steps_run = 0;
-    for (uint32_t i = 0; i < steps; i++) {
-        if (z80ex_doing_halt(z8t->cpu)) {
-            steps_run--;
-            break;
+    uint32_t clock_cycles = 0;
+    if (steps == 0) {
+        while (1) {
+            if (z80ex_doing_halt(z8t->cpu)) {
+                break;
+            }
+            clock_cycles += z80ex_step(z8t->cpu);
         }
-        z80ex_step(z8t->cpu);
-        steps_run++;
     }
-    return steps_run;
+    else {
+        for (uint32_t i = 0; i < steps; i++) {
+            if (z80ex_doing_halt(z8t->cpu)) {
+                break;
+            }
+            clock_cycles += z80ex_step(z8t->cpu);
+        }
+    }
+    z8t->clock_cycles = clock_cycles;
+    return clock_cycles;
 }
 
 void z8t_load_rom(struct z8t_t* z8t, char* file) {
@@ -205,7 +251,6 @@ void z8t_init(struct z8t_t* z8t, int argc, char* argv[]) {
     }
     memset(z8t->memory, 0, sizeof(uint8_t) * 65536);
     z8t->cpu = z80ex_create(z8t_mem_read, z8t, z8t_mem_write, z8t, z8t_port_read, z8t, z8t_port_write, z8t, z8t_int_read, z8t);
-    cck_init(z8t->cck);
     z8t_args(z8t, argc, argv);
 }
 

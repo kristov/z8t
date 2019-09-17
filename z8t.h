@@ -1,12 +1,14 @@
 #ifndef Z80TEST_H
 #define Z80TEST_H
 
-#include <cck.h>
+#include <stdint.h>
 #include <z80ex.h>
 
 struct z8t_t {
     Z80EX_CONTEXT* cpu;
-    struct cck_t* cck;
+    uint32_t passes;
+    uint32_t failures;
+    uint32_t clock_cycles;
     uint8_t* memory;
 };
 
@@ -43,5 +45,7 @@ void z8t_reg_ix_is(struct z8t_t* z8t, uint16_t desired, const char* test_name);
 void z8t_reg_iy_is(struct z8t_t* z8t, uint16_t desired, const char* test_name);
 
 void z8t_memory_is(struct z8t_t* z8t, uint8_t* desired, uint16_t length, const char* test_name);
+
+void z8t_report(struct z8t_t* z8t);
 
 #endif
