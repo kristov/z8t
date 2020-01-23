@@ -1,3 +1,12 @@
+# This is an example z8t file showing how a basic function can be tested.
+
+# This is how to print messages during the test.
+>DIAG "An example test"
+
+# This code is compiled into a binary then executed by z8t (which prints a core
+# dump). The state of the machine and memory can then be tested before a reset
+# and another test. Code can also be included via ">INCLUDE <file>" for example
+# common global variables used in each test.
 >CODE
 mem_loc: equ 0xff
 
@@ -6,10 +15,29 @@ mem_loc: equ 0xff
     call save_a
     halt
 
+; Here the subroutine we want to test is specified in the CODE block. It might
+; be more common to INCLUDE a source file from the project containing the
+; function for testing.
 save_a:
     ld (hl), a
     ret
+
+; The ">RUN" command compiles the code and generates the core dump. Comments
+; are not allowed inside the CODE section unless they are comments supported
+; by the assembler. This comment will appear in the source.
 >RUN
+
+# Test register "A" against the value 0x03. Decimal is also supported.
 >REG A 0x03 "A register was loaded"
+
+# When testing a register pair a 16 bit expected value can be provided.
+>REG HL 0x00ff "HL register correct (16 bit)"
+
+# Chunks of memory can be tested like so. The 0xff here is the start of memory
+# where to begin the test. All lines following a MEM (until the next command or
+# the end of the file) are interpreted as 8 bit or 16 bit bytes. Note: comments
+# are not allowed inside the MEM block.
 >MEM 0xff "Memory location set to A"
 0x03
+
+
