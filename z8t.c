@@ -70,7 +70,7 @@ void z8t_regdump(struct z8t_t* z8t) {
 }
 
 void z8t_memdump(struct z8t_t* z8t, uint16_t len) {
-    uint16_t idx;
+    uint16_t idx = 0;
     uint16_t rows = len / 0x20;
     for (uint16_t y = 0; y < rows; y++) {
         fprintf(stdout, "%04x: ", idx);
