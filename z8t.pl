@@ -101,7 +101,11 @@ my %COMMANDS = (
             my $nr_bytes = scalar(@data);
             my $idx = hex($self->{stash}->{start});
             my $ok = 0;
-            BYTE: while (my $dat = shift @data) {
+            my $didx = 0;
+            my @mem;
+            BYTE: for (my $didx = 0; $didx < scalar(@data); $didx++) {
+                my $dat = $data[$didx];
+                push @mem, $self->{memory}->[$idx];
                 if (!defined $dat) {
                     $ok++;
                     $idx++;
@@ -118,6 +122,8 @@ my %COMMANDS = (
             }
             else {
                 diag($self, "FAIL: " . $self->{stash}->{name});
+                diag($self, "  got: " . join(" ", map {sprintf("%02x", $_)} @mem));
+                diag($self, "  exp: " . join(" ", map {defined $_ ? sprintf("%02x", $_) : ".."} @data));
                 $self->{test}->{fail}++;
             }
             $self->{line_buf} = [];
@@ -168,7 +174,8 @@ sub run_test {
     `z80asm-gnu -o test.bin test.asm`;
     `rm test.asm`;
     my $z8t = $self->{z8t};
-    open(my $fh, "$z8t -r test.bin|") || die "unable to open pipe to './z8t': $!";
+    `$z8t -r test.bin > test.core`;
+    open(my $fh, '<', 'test.core') || die "unable to open 'test.core': $!";
     LINE: while (my $line = <$fh>) {
         if ($line =~ /^([a-z0-9]+): ([a-z0-9\s]+)/) {
             my ($addr, $datastr) = ($1, $2);
@@ -189,12 +196,16 @@ sub run_test {
         }
     }
     close $fh;
+    if (!$self->{keep_core}) {
+        `rm test.core`;
+    }
     `rm test.bin`;
 }
 
 sub run_test_file {
     my ($args, $test_file, $quiet) = @_;
     my $self = {
+        keep_core => $args->{keep_core},
         z8t => $args->{z8t},
         quiet => $quiet,
         line => 0,
@@ -284,17 +295,19 @@ sub command_post {
 }
 
 sub get_args {
-    my @test_files;
+    my $args = {
+        keep_core => 0,
+        test_files => [],
+    };
     for my $arg (@ARGV) {
-        if ($arg =~ /^-/) {
+        if ($arg =~ /^-k/) {
+            $args->{keep_core} = 1;
         }
         else {
-            push @test_files, $arg;
+            push @{$args->{test_files}}, $arg;
         }
     }
-    return {
-        test_files => \@test_files,
-    };
+    return $args;
 }
 
 sub main {
