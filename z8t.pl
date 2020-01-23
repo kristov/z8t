@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use FindBin;
 
 my %REG2REGPAIR = (
     A => ['AF', 'U'],
@@ -166,7 +167,8 @@ sub run_test {
     write_lines("test.asm", $self->{src});
     `z80asm-gnu -o test.bin test.asm`;
     `rm test.asm`;
-    open(my $fh, './z8t -r test.bin|') || die "unable to open pipe to './z8t': $!";
+    my $z8t = $self->{z8t};
+    open(my $fh, "$z8t -r test.bin|") || die "unable to open pipe to './z8t': $!";
     LINE: while (my $line = <$fh>) {
         if ($line =~ /^([a-z0-9]+): ([a-z0-9\s]+)/) {
             my ($addr, $datastr) = ($1, $2);
@@ -191,8 +193,9 @@ sub run_test {
 }
 
 sub run_test_file {
-    my ($test_file, $quiet) = @_;
+    my ($args, $test_file, $quiet) = @_;
     my $self = {
+        z8t => $args->{z8t},
         quiet => $quiet,
         line => 0,
         src => [],
@@ -296,9 +299,12 @@ sub get_args {
 
 sub main {
     my ($args) = @_;
+    if (!$args->{z8t}) {
+        $args->{z8t} = sprintf("%s/z8t", $FindBin::Bin);
+    }
     my $quiet = (scalar(@{$args->{test_files}}) > 1) ? 1 : 0;
     for my $test_file (@{$args->{test_files}}) {
-        run_test_file($test_file, $quiet);
+        run_test_file($args, $test_file, $quiet);
     }
 }
 
