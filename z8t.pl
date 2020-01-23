@@ -2,7 +2,6 @@
 
 use strict;
 use warnings;
-use Data::Dumper;
 
 my %REG2REGPAIR = (
     A => ['AF', 'U'],
@@ -15,12 +14,18 @@ my %REG2REGPAIR = (
     L => ['HL', 'L'],
 );
 
-sub convert {
-    my ($num) = @_;
-    return (substr($num, 0, 2) eq '0x') ? hex($num) : $num;
-}
-
 my %COMMANDS = (
+    DIAG => {
+        args => sub {
+            my ($self, $rest) = @_;
+            if ($rest =~ /^"([^"]+)"$/) {
+                diag($self, $1);
+                return;
+            }
+            die "Invalid DIAG at line " . $self->{line};
+        },
+        post => sub {},
+    },
     CODE => {
         args => sub {
             my ($self) = @_;
@@ -35,17 +40,6 @@ my %COMMANDS = (
             $self->{line_buf} = [];
             $self->{record} = 0;
         },
-    },
-    DIAG => {
-        args => sub {
-            my ($self, $rest) = @_;
-            if ($rest =~ /^"([^"]+)"$/) {
-                print STDERR "# $1\n";
-                return;
-            }
-            die "Invalid DIAG at line " . $self->{line};
-        },
-        post => sub {},
     },
     INCLUDE => {
         args => sub {
@@ -78,7 +72,7 @@ my %COMMANDS = (
                 }
                 $expected = convert($expected);
                 my $got = $self->{registers}->{$regpair}->{$UL};
-                print "$got == $expected?\n";
+                test_value($self, $got, $expected, $name);
                 return;
             }
             die "Invalid REG at line " . $self->{line};
@@ -102,11 +96,28 @@ my %COMMANDS = (
         post => sub {
             my ($self) = @_;
             my $mem = join(" ", @{$self->{line_buf}});
-            my @data = map {convert($_)} split(/\s+/, $mem);
+            my @data = map {$_ =~ /xx/i ? undef : convert($_)} split(/\s+/, $mem);
+            my $nr_bytes = scalar(@data);
             my $idx = hex($self->{stash}->{start});
-            while (my $dat = shift @data) {
-                #if ($dat == $self->{memory}->[$idx]) {
+            my $ok = 0;
+            BYTE: while (my $dat = shift @data) {
+                if (!defined $dat) {
+                    $ok++;
+                    $idx++;
+                    next BYTE;
+                }
+                if ($dat == $self->{memory}->[$idx]) {
+                    $ok++;
+                }
                 $idx++;
+            }
+            if ($nr_bytes == $ok) {
+                diag($self, "ok: " . $self->{stash}->{name});
+                $self->{test}->{pass}++;
+            }
+            else {
+                diag($self, "FAIL: " . $self->{stash}->{name});
+                $self->{test}->{fail}++;
             }
             $self->{line_buf} = [];
             $self->{record} = 0;
@@ -126,10 +137,35 @@ my %COMMANDS = (
     },
 );
 
+sub convert {
+    my ($num) = @_;
+    return (substr($num, 0, 2) eq '0x') ? hex($num) : $num;
+}
+
+sub test_value {
+    my ($self, $got, $expected, $name) = @_;
+    if ($got == $expected) {
+        $self->{test}->{pass}++;
+        diag($self, "ok: $name");
+    }
+    else {
+        $self->{test}->{fail}++;
+        diag($self, "FAIL: $name");
+    }
+}
+
+sub diag {
+    my ($self, $msg) = @_;
+    if (!$self->{quiet}) {
+        print "$msg\n";
+    }
+}
+
 sub run_test {
     my ($self) = @_;
     write_lines("test.asm", $self->{src});
     `z80asm-gnu -o test.bin test.asm`;
+    `rm test.asm`;
     open(my $fh, './z8t -r test.bin|') || die "unable to open pipe to './z8t': $!";
     LINE: while (my $line = <$fh>) {
         if ($line =~ /^([a-z0-9]+): ([a-z0-9\s]+)/) {
@@ -151,15 +187,21 @@ sub run_test {
         }
     }
     close $fh;
+    `rm test.bin`;
 }
 
 sub run_test_file {
-    my ($test_file) = @_;
+    my ($test_file, $quiet) = @_;
     my $self = {
+        quiet => $quiet,
         line => 0,
         src => [],
         current_command => undef,
         line_buf => [],
+        test => {
+            pass => 0,
+            fail => 0,
+        },
     };
     open(my $fh, '<', $test_file) || die "unable to open test file '$test_file': $!";
     my $no = 0;
@@ -194,6 +236,9 @@ sub run_test_file {
     if ($self->{current_command}) {
         command_post($self, $self->{current_command});
     }
+
+    my $total = $self->{test}->{pass} + $self->{test}->{fail};
+    printf("pass/total: %d/%d\n", $self->{test}->{pass}, $total);
 
     close $fh;
 }
@@ -251,8 +296,9 @@ sub get_args {
 
 sub main {
     my ($args) = @_;
+    my $quiet = (scalar(@{$args->{test_files}}) > 1) ? 1 : 0;
     for my $test_file (@{$args->{test_files}}) {
-        run_test_file($test_file);
+        run_test_file($test_file, $quiet);
     }
 }
 

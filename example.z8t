@@ -13,6 +13,11 @@ mem_loc: equ 0xff
     ld a, 0x03
     ld hl, mem_loc
     call save_a
+
+; A halt is injected after each CODE block. However in this example the halt
+; would be injected after the ret of the function. This means the z8t runner
+; would not detect a halt and fall through to executing the function, doing a
+; ret to some random part of memory and probably executing forever.
     halt
 
 ; Here the subroutine we want to test is specified in the CODE block. It might
@@ -20,6 +25,8 @@ mem_loc: equ 0xff
 ; function for testing.
 save_a:
     ld (hl), a
+    inc hl
+    ld (hl), 0x0f
     ret
 
 ; The ">RUN" command compiles the code and generates the core dump. Comments
@@ -31,13 +38,13 @@ save_a:
 >REG A 0x03 "A register was loaded"
 
 # When testing a register pair a 16 bit expected value can be provided.
->REG HL 0x00ff "HL register correct (16 bit)"
+>REG HL 0x0100 "HL register correct (16 bit)"
 
 # Chunks of memory can be tested like so. The 0xff here is the start of memory
 # where to begin the test. All lines following a MEM (until the next command or
 # the end of the file) are interpreted as 8 bit or 16 bit bytes. Note: comments
 # are not allowed inside the MEM block.
->MEM 0xff "Memory location set to A"
-0x03
+>MEM 0xff "Memory locations set correctly"
+0x03 0x0f
 
 
