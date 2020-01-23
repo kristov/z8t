@@ -88,7 +88,7 @@ not think of a case where you would not want to do this immediately after your
 ### >STACK `<stack contents>`
 
 This tests the contents of the stack starting from the "top" of the stack
-(lower memory location up).
+(lower memory location up). *NOT IMPLEMENTED*
 
 ### Values
 
