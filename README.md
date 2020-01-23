@@ -11,14 +11,13 @@ expected. First separate the thing you want to test into it's own asm file:
 
 Then create a z8t test script:
 
-    >INIT
-    # initalization code
-    some_var: equ 0x26
     >DIAG "Preparing to test with a thing"
-    >TEST
+    >CODE
+    some_var: equ 0x26
         ld a, 0xde
         call my_special_func
-    >INCLUDE "../my_special_func.asm"
+    >INCLUDE "my_special_func.asm"
+    >RUN
     # Comments about the test are allowed like this
     >REG A  0x04   "Register A is 4"
     >REG HL 0x0302 "Register HL is correct"
@@ -27,10 +26,12 @@ Then create a z8t test script:
     0x02 0x07
     >RESET
     >DIAG "Preparing to test with different thing"
-    >TEST
+    >CODE
+    some_var: equ 0x26
         ld a, 0xb4
         call my_special_func
-    >INCLUDE "../my_special_func.asm"
+    >INCLUDE "my_special_func.asm"
+    >RUN
     >REG DE 0x22 "Register DE is correct"
     >STACK 0x01 0x01 0x00 0x22 "Stack top looks good"
     >MEM 0xaf "Memory chunk correct"
@@ -41,20 +42,19 @@ Then create a z8t test script:
 
 Z8t commands begin with `>`. Each explained:
 
-### >INIT
+### >CODE
 
-The init code is included at the begininng of the asm source. If you need to
-set some global variables or otherwise prepare the environment, set a chunk of
-memory etc - something you want to do at the start of every test.
+This is inline code that is injected into the source. It is used to initialise
+the test, set up global variables etc. Note: common parts can be added to an
+`INCLUDE` file and be imported like the source being tested. Note: all `CODE`
+sections have a `halt` instruction inserted after them. This is to ensure that
+when a test is run the program does not fall through to subsequent code and
+corrupt the machine state before tests can be made.
 
 ### >INCLUDE "`<file>`"
 
-This code is included in the test asm at the moment it's encountered in the
-test script. A `RESET` will compile a new binary so if you want something
-included for each test is must be done after each `RESET`. The `INCLUDE` can
-either be before or after the `TEST` block depending on what you want, although
-there is an implicit `halt` instruction injected after each `TEST` block,
-before any subsequent `INCLUDE`s.
+This code is included in the source at the moment it's encountered in the test
+script.
 
 ### >DIAG "..."
 
@@ -62,12 +62,11 @@ Print this dialog at this point in the test. These will only be seen if there
 is only one z8t test script provided to `z8t.pl`, as otherwise only a final
 single line report is printed.
 
-### >TEST
+### >RUN
 
-The code that will be run to do the test. No infinite loops are allowed as the
-test will spin here and never proceed. After the test code a `halt` instruction
-is injected to signal to the emulator that the code has completed and the state
-of the machine can be inspected.
+This generates the assembly from the `CODE` and `INCLUDE` source, compiles to
+binary and executes the binary in `z8t`. That runs the code until a halt and
+dumps the machine state.
 
 ### >REG `<X>` `<expected>` "..."
 
@@ -82,11 +81,9 @@ readability.
 
 ### >RESET
 
-If you want the machine to be reset then here a new binary will be compiled.
-Otherwise the machine will be started again with the program counter set to the
-location after the last injected `halt`. If reset the new binary will have the
-`INIT` code prepended, then any `INCLUDE` lines after this `RESET`. It will
-then be compiled into a new binary and run on the reset machine.
+This wipes the source code so the next test is done from a clean slate. i can
+not think of a case where you would not want to do this immediately after your
+`REG`, `MEM` or `STACK` tests are completed and before the next test.
 
 ### >STACK `<stack contents>`
 

@@ -82,43 +82,6 @@ void z8t_memdump(struct z8t_t* z8t, uint16_t len) {
     }
 }
 
-static void is_equal_uint16(struct z8t_t* z8t, uint16_t provided, uint16_t desired, const char* test_name) {
-    if (provided != desired) {
-        z8t->failures++;
-        fprintf(stderr, "FAIL: %s\n", test_name);
-        fprintf(stderr, "    provided: %d, desired: %d\n", provided, desired);
-    }
-    else {
-        z8t->passes++;
-        fprintf(stderr, "pass: %s\n", test_name);
-    }
-}
-
-static void is_equal_uint8(struct z8t_t* z8t, uint8_t provided, uint8_t desired, const char* test_name) {
-    if (provided != desired) {
-        z8t->failures++;
-        fprintf(stderr, "FAIL: %s\n", test_name);
-        fprintf(stderr, "    provided: %d, desired: %d\n", provided, desired);
-    }
-    else {
-        z8t->passes++;
-        fprintf(stderr, "pass: %s\n", test_name);
-    }
-}
-
-void z8t_report(struct z8t_t* z8t) {
-    fprintf(stderr, "Ran %d tests:\n", z8t->failures + z8t->passes);
-    fprintf(stderr, "  %d Failures\n", z8t->failures);
-    fprintf(stderr, "  %d Passes\n", z8t->passes);
-    if (0 == z8t->failures) {
-        fprintf(stderr, "-- ALL TESTS PASS --\n");
-    }
-    else {
-        fprintf(stderr, "-- SOME TESTS FAILED --\n");
-    }
-    fprintf(stderr, "CYCLES: %d\n", z8t->clock_cycles);
-}
-
 uint32_t z8t_run(struct z8t_t* z8t, uint32_t steps) {
     uint32_t clock_cycles = 0;
     if (steps == 0) {
@@ -139,198 +102,6 @@ uint32_t z8t_run(struct z8t_t* z8t, uint32_t steps) {
     }
     z8t->clock_cycles = clock_cycles;
     return clock_cycles;
-}
-
-static void test_reg8L(struct z8t_t* z8t, uint8_t reg, uint8_t desired, const char* test_name) {
-    uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, reg);
-    uint8_t reg8 = (uint8_t)(reg16 & 0xff);
-    is_equal_uint8(z8t, reg8, desired, test_name);
-}
-
-static void test_reg8H(struct z8t_t* z8t, uint8_t reg, uint8_t desired, const char* test_name) {
-    uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, reg);
-    uint8_t reg8 = (uint8_t)(reg16 >> 8);
-    is_equal_uint8(z8t, reg8, desired, test_name);
-}
-
-static void test_reg16(struct z8t_t* z8t, uint8_t reg, uint16_t desired, const char* test_name) {
-    uint16_t reg16 = (uint16_t)z80ex_get_reg(z8t->cpu, reg);
-    is_equal_uint16(z8t, reg16, desired, test_name);
-}
-
-void z8t_run_test(struct z8t_t* z8t) {
-    if (!z8t->test_file) {
-        fprintf(stderr, "No test file name set\n");
-    }
-    FILE* fh = fopen(z8t->test_file, "r");
-    if (fh == NULL) {
-        fprintf(stderr, "Could not open test file: %s\n", z8t->test_file);
-        return;
-    }
-
-    regex_t r;
-    regmatch_t matches[3];
-    if (regcomp(&r, "^([A-Z]+):\\s+([0-9xa-f:,]+)", REG_EXTENDED) != 0) {
-        fprintf(stderr, "Regex compilation failed!\n");
-        return;
-    }
-
-    size_t len = 0;
-    ssize_t read;
-    char* line = NULL;
-    char cmd[256];
-    char val[256];
-    while ((read = getline(&line, &len, fh)) != -1) {
-        if (regexec(&r, line, 3, &matches[0], 0) != 0) {
-            continue;
-        }
-
-        if (matches[1].rm_so != 0 || matches[1].rm_eo <= 0) {
-            continue;
-        }
-        uint8_t cmd_len = matches[1].rm_eo - matches[1].rm_so;
-        memset(cmd, 0, 256);
-        memcpy(cmd, line + matches[1].rm_so, cmd_len);
-
-        if (matches[2].rm_so <= 0 || matches[2].rm_eo <= 0) {
-            continue;
-        }
-        uint8_t val_len = matches[2].rm_eo - matches[2].rm_so;
-        memset(val, 0, 256);
-        memcpy(val, line + matches[2].rm_so, val_len);
-
-        int intval = (int)strtol(val, NULL, 16);
-
-        switch (cmd[0]) {
-            case 'A':
-                switch (cmd_len) {
-                    case 1:
-                        test_reg8H(z8t, regAF, (uint8_t)intval, "Register A value correct");
-                        break;
-                    case 2:
-                        test_reg16(z8t, regAF, (uint16_t)intval, "Register AF value correct");
-                        break;
-                    case 3:
-                        test_reg16(z8t, regAF_, (uint16_t)intval, "Register AF' value correct");
-                        break;
-                }
-                break;
-            case 'B':
-                switch (cmd_len) {
-                    case 1:
-                        test_reg8H(z8t, regBC, (uint8_t)intval, "Register A value correct");
-                        break;
-                    case 2:
-                        test_reg16(z8t, regBC, (uint16_t)intval, "Register BC value correct");
-                        break;
-                    case 3:
-                        test_reg16(z8t, regBC_, (uint16_t)intval, "Register BC' value correct");
-                        break;
-                }
-                break;
-            case 'C':
-                switch (cmd_len) {
-                    case 1:
-                        test_reg8L(z8t, regBC, (uint8_t)intval, "Register C value correct");
-                        break;
-                    case 2:
-                        test_reg8L(z8t, regBC_, (uint8_t)intval, "Register C' value correct");
-                        break;
-                }
-                break;
-            case 'D':
-                switch (cmd_len) {
-                    case 1:
-                        test_reg8H(z8t, regDE, (uint8_t)intval, "Register D value correct");
-                        break;
-                    case 2:
-                        test_reg16(z8t, regDE, (uint16_t)intval, "Register DE value correct");
-                        break;
-                    case 3:
-                        test_reg16(z8t, regDE_, (uint16_t)intval, "Register DE' value correct");
-                        break;
-                }
-                break;
-            case 'E':
-                switch (cmd_len) {
-                    case 1:
-                        test_reg8L(z8t, regDE, (uint8_t)intval, "Register E value correct");
-                        break;
-                    case 2:
-                        test_reg8L(z8t, regDE_, (uint8_t)intval, "Register E' value correct");
-                        break;
-                }
-                break;
-            case 'H':
-                switch (cmd_len) {
-                    case 1:
-                        test_reg8H(z8t, regHL, (uint8_t)intval, "Register H value correct");
-                        break;
-                    case 2:
-                        test_reg16(z8t, regHL, (uint16_t)intval, "Register HL value correct");
-                        break;
-                    case 3:
-                        test_reg16(z8t, regHL_, (uint16_t)intval, "Register HL' value correct");
-                        break;
-                }
-                break;
-            case 'L':
-                switch (cmd_len) {
-                    case 1:
-                        test_reg8L(z8t, regHL, (uint8_t)intval, "Register L value correct");
-                        break;
-                    case 2:
-                        test_reg8L(z8t, regHL_, (uint8_t)intval, "Register L' value correct");
-                        break;
-                }
-                break;
-            case 'S':
-                switch (cmd_len) {
-                    case 1:
-                        fprintf(stderr, "No just 'S'\n");
-                        break;
-                    case 2:
-                        break;
-                    default:
-                        fprintf(stderr, "'S'whaat?\n");
-                }
-                break;
-            case 'I':
-                switch (cmd_len) {
-                    case 1:
-                        test_reg8L(z8t, regI, (uint8_t)intval, "Register I value correct");
-                        break;
-                    case 2:
-                        switch (cmd[1]) {
-                            case 'X':
-                                test_reg16(z8t, regIX, (uint16_t)intval, "Register IX value correct");
-                                break;
-                            case 'Y':
-                                test_reg16(z8t, regIY, (uint16_t)intval, "Register IY value correct");
-                                break;
-                            default:
-                                fprintf(stderr, "'I'whaat?\n");
-                        }
-                        break;
-                    default:
-                        fprintf(stderr, "Too many things for 'I'\n");
-                        break;
-                }
-                break;
-            case 'R':
-                break;
-            case 'M':
-                break;
-            default:
-                fprintf(stderr, "unknown command: %s\n", cmd);
-                break;
-        }
-    }
-
-    fclose(fh);
-    if (line) {
-        free(line);
-    }
 }
 
 void z8t_load_rom(struct z8t_t* z8t, char* file) {
@@ -359,26 +130,17 @@ void z8t_args(struct z8t_t* z8t, int argc, char* argv[]) {
     int option_index = 0;
     static struct option long_options[] = {
         {"rom", optional_argument, 0, 'r'},
-        {"tspec", optional_argument, 0, 't'},
         {0, 0, 0, 0}
     };
-
     char c;
-    uint16_t file_name_len = 0;
     while (1) {
-        c = getopt_long(argc, argv, "r:t:", long_options, &option_index);
+        c = getopt_long(argc, argv, "r:", long_options, &option_index);
         if (c == -1) {
             break;
         }
         switch (c) {
             case 'r':
                 z8t_load_rom(z8t, optarg);
-                break;
-            case 't':
-                file_name_len = strlen(optarg);
-                z8t->test_file = malloc(sizeof(char) * (file_name_len + 1));
-                memcpy(z8t->test_file, optarg, file_name_len);
-                z8t->test_file[file_name_len] = 0;
                 break;
             default:
                 exit(1);
@@ -401,7 +163,7 @@ int main(int argc, char* argv[]) {
     struct z8t_t z8t;
     z8t_init(&z8t, argc, argv);
     z8t_run(&z8t, 0);
-    z8t_run_test(&z8t);
-    z8t_report(&z8t);
+    z8t_regdump(&z8t);
+    z8t_memdump(&z8t, 65535);
     return 0;
 }

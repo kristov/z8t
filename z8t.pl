@@ -3,11 +3,117 @@
 use strict;
 use warnings;
 
+my %COMMANDS = (
+    CODE => {
+        args => sub {
+            my ($self) = @_;
+            $self->{record} = 1;
+        },
+        post => sub {
+            my ($self) = @_;
+            for my $line (@{$self->{line_buf}}) {
+                push @{$self->{src}}, $line;
+            }
+            push @{$self->{src}}, "    halt";
+            $self->{line_buf} = [];
+            $self->{record} = 0;
+        },
+    },
+    DIAG => {
+        args => sub {
+            my ($self, $rest) = @_;
+            if ($rest =~ /^"([^"]+)"$/) {
+                print STDERR "# $1\n";
+                return;
+            }
+            die "Invalid DIAG at line " . $self->{line};
+        },
+        post => sub {},
+    },
+    INCLUDE => {
+        args => sub {
+            my ($self, $rest) = @_;
+            if ($rest =~ /^"([^"]+)"$/) {
+                push @{$self->{src}}, slurp_lines($1);
+                return;
+            }
+            die "Invalid INCLUDE at line " . $self->{line};
+        },
+        post => sub {},
+    },
+    RUN => {
+        args => sub {},
+        post => sub {
+            my ($self) = @_;
+            run_test($self);
+        },
+    },
+    REG => {
+        args => sub {
+            my ($self, $rest) = @_;
+            if ($rest =~ /^([AFBCDEHLSP]+)\s+([a-zA-Z0-9]+)\s+"([^"]+)"/) {
+                my ($register, $expected, $name) = ($1, $2, $3);
+                return;
+            }
+            die "Invalid REG at line " . $self->{line};
+        },
+        post => sub {},
+    },
+    MEM => {
+        args => sub {
+            my ($self, $rest) = @_;
+            $self->{record} = 1;
+            if ($rest =~ /^([a-zA-Z0-9]+)\s+"([^"]+)"/) {
+                my ($start, $name) = ($1, $2);
+                return;
+            }
+            die "Invalid MEM at line " . $self->{line};
+        },
+        post => sub {
+            my ($self) = @_;
+            my $mem = join(" ", @{$self->{line_buf}});
+            my @byte_chars = split(/\s+/, $mem);
+            $self->{line_buf} = [];
+            $self->{record} = 0;
+        },
+    },
+    RESET => {
+        args => sub {
+            my ($self) = @_;
+            $self->{line_buf} = [];
+            $self->{src} = [];
+        },
+        post => sub {},
+    },
+    STACK => {
+        args => sub {},
+        post => sub {},
+    },
+);
+
+sub run_test {
+    my ($self) = @_;
+    write_lines("test.asm", $self->{src});
+    `z80asm-gnu -o test.bin test.asm`;
+    open(my $fh, './z8t -r test.bin|') || die "unable to open pipe to './z8t': $!";
+    LINE: while (my $line = <$fh>) {
+        if ($line =~ /^([a-z0-9]+): ([a-z0-9\s]+)/) {
+            my ($addr, $datstr) = ($1, $2);
+            next LINE;
+        }
+        if ($line =~ /^([AFBCDEHLSP]{2})\s+([a-z0-9]{2})\s+([a-z0-9]{2})/) {
+            my ($regpair, $lower, $upper) = ($1, $2, $3);
+            next LINE;
+        }
+    }
+    close $fh;
+}
+
 sub run_test_file {
     my ($test_file) = @_;
     my $self = {
         line => 0,
-        init => "",
+        src => [],
         current_command => undef,
         line_buf => [],
     };
@@ -37,7 +143,9 @@ sub run_test_file {
         if ($line =~ /^#/) {
             next LINE;
         }
-        push @{$self->{line_buf}}, $line;
+        if ($self->{record}) {
+            push @{$self->{line_buf}}, $line;
+        }
     }
     if ($self->{current_command}) {
         command_post($self, $self->{current_command});
@@ -46,86 +154,25 @@ sub run_test_file {
     close $fh;
 }
 
-my %COMMANDS = (
-    INIT => {
-        args => sub {},
-        post => sub {
-            my ($self) = @_;
-            $self->{init} = join("\n", @{$self->{line_buf}});
-            $self->{line_buf} = [];
-        },
-    },
-    DIAG => {
-        args => sub {
-            my ($self, $rest) = @_;
-            if ($rest =~ /^"([^"]+)"$/) {
-                print STDERR "# $1\n";
-                return;
-            }
-            die "Invalid DIAG at line " . $self->{line};
-        },
-        post => sub {},
-    },
-    INCLUDE => {
-        args => sub {
-            my ($self, $rest) = @_;
-            if ($rest =~ /^"([^"]+)"$/) {
-                $self->{include} = slurp_file($1);
-                return;
-            }
-            die "Invalid INCLUDE at line " . $self->{line};
-        },
-        post => sub {},
-    },
-    TEST => {
-        args => sub {},
-        post => sub {
-            my ($self) = @_;
-            my $test = join("\n", @{$self->{line_buf}});
-            $self->{line_buf} = [];
-            run_test($self, $test);
-        },
-    },
-    REG => {
-        args => sub {
-            my ($self, $rest) = @_;
-            if ($rest =~ /^([AFBCDEHLSP]+)\s+([a-zA-Z0-9]+)\s+"([^"]+)"/) {
-                my ($register, $expected, $name) = ($1, $2, $3);
-                return;
-            }
-            die "Invalid REG ('$rest') at line " . $self->{line};
-        },
-        post => sub {},
-    },
-    MEM => {
-        args => sub {
-        },
-        post => sub {
-        },
-    },
-    RESET => {
-        args => sub {
-            my ($self) = @_;
-        },
-        post => sub {
-        },
-    },
-);
-
-sub run_test {
-    my ($self, $test) = @_;
-    print $self->{init} . "\n" . $test . "\n";
-}
-
-sub slurp_file {
+sub slurp_lines {
     my ($file_name) = @_;
     open(my $fh, '<', $file_name) || die "unable to open file '$file_name': $!";
-    my $text = "";
+    my @lines;
     while (my $line = <$fh>) {
-        $text .= $line;
+        chomp $line;
+        push @lines, $line;
     }
     close $fh;
-    return $text;
+    return @lines;
+}
+
+sub write_lines {
+    my ($file_name, $lines) = @_;
+    open(my $fh, '>', $file_name) || die "unable to open file '$file_name': $!";
+    for my $line (@{$lines}) {
+        print $fh "$line\n";
+    }
+    close $fh;
 }
 
 sub command_args {
