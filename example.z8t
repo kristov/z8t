@@ -1,0 +1,15 @@
+>CODE
+mem_loc: equ 0xff
+
+    ld a, 0x03
+    ld hl, mem_loc
+    call save_a
+    halt
+
+save_a:
+    ld (hl), a
+    ret
+>RUN
+>REG A 0x03 "A register was loaded"
+>MEM 0xff "Memory location set to A"
+0x03

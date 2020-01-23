@@ -2,6 +2,23 @@
 
 use strict;
 use warnings;
+use Data::Dumper;
+
+my %REG2REGPAIR = (
+    A => ['AF', 'U'],
+    F => ['AF', 'L'],
+    B => ['BC', 'U'],
+    C => ['BC', 'L'],
+    D => ['DE', 'U'],
+    E => ['DE', 'L'],
+    H => ['HL', 'U'],
+    L => ['HL', 'L'],
+);
+
+sub convert {
+    my ($num) = @_;
+    return (substr($num, 0, 2) eq '0x') ? hex($num) : $num;
+}
 
 my %COMMANDS = (
     CODE => {
@@ -53,6 +70,15 @@ my %COMMANDS = (
             my ($self, $rest) = @_;
             if ($rest =~ /^([AFBCDEHLSP]+)\s+([a-zA-Z0-9]+)\s+"([^"]+)"/) {
                 my ($register, $expected, $name) = ($1, $2, $3);
+                my $regpair = $register;
+                my $UL = 'UL';
+                if ($REG2REGPAIR{$register}) {
+                    $regpair = $REG2REGPAIR{$register}->[0];
+                    $UL = $REG2REGPAIR{$register}->[1];
+                }
+                $expected = convert($expected);
+                my $got = $self->{registers}->{$regpair}->{$UL};
+                print "$got == $expected?\n";
                 return;
             }
             die "Invalid REG at line " . $self->{line};
@@ -65,6 +91,10 @@ my %COMMANDS = (
             $self->{record} = 1;
             if ($rest =~ /^([a-zA-Z0-9]+)\s+"([^"]+)"/) {
                 my ($start, $name) = ($1, $2);
+                $self->{stash} = {
+                    start => $start,
+                    name => $name,
+                };
                 return;
             }
             die "Invalid MEM at line " . $self->{line};
@@ -72,7 +102,12 @@ my %COMMANDS = (
         post => sub {
             my ($self) = @_;
             my $mem = join(" ", @{$self->{line_buf}});
-            my @byte_chars = split(/\s+/, $mem);
+            my @data = map {convert($_)} split(/\s+/, $mem);
+            my $idx = hex($self->{stash}->{start});
+            while (my $dat = shift @data) {
+                #if ($dat == $self->{memory}->[$idx]) {
+                $idx++;
+            }
             $self->{line_buf} = [];
             $self->{record} = 0;
         },
@@ -98,11 +133,20 @@ sub run_test {
     open(my $fh, './z8t -r test.bin|') || die "unable to open pipe to './z8t': $!";
     LINE: while (my $line = <$fh>) {
         if ($line =~ /^([a-z0-9]+): ([a-z0-9\s]+)/) {
-            my ($addr, $datstr) = ($1, $2);
+            my ($addr, $datastr) = ($1, $2);
+            my $idx = hex($addr);
+            my @data = split(/\s+/, $datastr);
+            for my $dat (@data) {
+                $self->{memory}->[$idx] = hex($dat);
+                $idx++;
+            }
             next LINE;
         }
         if ($line =~ /^([AFBCDEHLSP]{2})\s+([a-z0-9]{2})\s+([a-z0-9]{2})/) {
-            my ($regpair, $lower, $upper) = ($1, $2, $3);
+            my ($regpair, $upper, $lower) = ($1, $2, $3);
+            $self->{registers}->{$regpair}->{L} = hex($lower);
+            $self->{registers}->{$regpair}->{U} = hex($upper);
+            $self->{registers}->{$regpair}->{UL} = hex($upper . $lower);
             next LINE;
         }
     }
