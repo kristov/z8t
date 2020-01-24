@@ -20,7 +20,7 @@ my %COMMANDS = (
         args => sub {
             my ($self, $rest) = @_;
             if ($rest =~ /^"([^"]+)"$/) {
-                diag($self, $1);
+                diag($self, "# $1");
                 return;
             }
             die "Invalid DIAG at line " . $self->{line};
@@ -251,8 +251,10 @@ sub run_test_file {
         command_post($self, $self->{current_command});
     }
 
-    my $total = $self->{test}->{pass} + $self->{test}->{fail};
-    printf("pass/total: %d/%d\n", $self->{test}->{pass}, $total);
+    my $pass = $self->{test}->{pass};
+    my $fail = $self->{test}->{fail};
+    my $total = $pass + $fail;
+    printf("pass/total: %d/%d [%s]\n", $pass, $total, $test_file);
 
     close $fh;
 }
