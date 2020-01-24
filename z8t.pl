@@ -73,7 +73,12 @@ my %COMMANDS = (
                 }
                 $expected = convert($expected);
                 my $got = $self->{registers}->{$regpair}->{$UL};
-                test_value($self, $got, $expected, $name);
+                if ($UL eq 'UL') {
+                    test_16b($self, $got, $expected, $name);
+                }
+                else {
+                    test_8b($self, $got, $expected, $name);
+                }
                 return;
             }
             die "Invalid REG at line " . $self->{line};
@@ -149,7 +154,7 @@ sub convert {
     return (substr($num, 0, 2) eq '0x') ? hex($num) : $num;
 }
 
-sub test_value {
+sub test_8b {
     my ($self, $got, $expected, $name) = @_;
     if ($got == $expected) {
         $self->{test}->{pass}++;
@@ -158,6 +163,18 @@ sub test_value {
     else {
         $self->{test}->{fail}++;
         diag($self, sprintf("FAIL: got: 0x%02x exp: 0x%02x: %s", $got, $expected, $name));
+    }
+}
+
+sub test_16b {
+    my ($self, $got, $expected, $name) = @_;
+    if ($got == $expected) {
+        $self->{test}->{pass}++;
+        diag($self, "ok: $name");
+    }
+    else {
+        $self->{test}->{fail}++;
+        diag($self, sprintf("FAIL: got: 0x%04x exp: 0x%04x: %s", $got, $expected, $name));
     }
 }
 
