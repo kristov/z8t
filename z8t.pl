@@ -157,7 +157,7 @@ sub test_value {
     }
     else {
         $self->{test}->{fail}++;
-        diag($self, "FAIL: $name");
+        diag($self, sprintf("FAIL: got: 0x%02x exp: 0x%02x: %s", $got, $expected, $name));
     }
 }
 
