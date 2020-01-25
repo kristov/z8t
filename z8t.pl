@@ -224,13 +224,16 @@ sub run_test {
     if (!$self->{keep_core}) {
         `rm test.core`;
     }
-    `rm test.bin`;
+    if (!$self->{keep_bin}) {
+        `rm test.bin`;
+    }
 }
 
 sub run_test_file {
     my ($args, $test_file, $quiet) = @_;
     my $self = {
         keep_core => $args->{keep_core},
+        keep_bin => $args->{keep_bin},
         exit => 0,
         z8t => $args->{z8t},
         quiet => $quiet,
@@ -333,6 +336,9 @@ sub get_args {
     for my $arg (@ARGV) {
         if ($arg =~ /^-k/) {
             $args->{keep_core} = 1;
+        }
+        elsif ($arg =~ /^-b/) {
+            $args->{keep_bin} = 1;
         }
         else {
             push @{$args->{test_files}}, $arg;
