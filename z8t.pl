@@ -147,6 +147,14 @@ my %COMMANDS = (
         args => sub {},
         post => sub {},
     },
+    EXIT => {
+        args => sub {
+            my ($self) = @_;
+            $self->{exit} = 1;
+            diag($self, "# EXITING");
+        },
+        post => sub {},
+    },
 );
 
 sub convert {
@@ -223,6 +231,7 @@ sub run_test_file {
     my ($args, $test_file, $quiet) = @_;
     my $self = {
         keep_core => $args->{keep_core},
+        exit => 0,
         z8t => $args->{z8t},
         quiet => $quiet,
         line => 0,
@@ -239,6 +248,9 @@ sub run_test_file {
     LINE: while (my $line = <$fh>) {
         chomp $line;
         $self->{line}++;
+        if ($self->{exit}) {
+            last;
+        }
         if ($line =~ /^>([A-Z]+)\s+(.+)/) {
             my ($command, $rest) = ($1, $2);
             if ($self->{current_command}) {
