@@ -162,8 +162,9 @@ void z8t_init(struct z8t_t* z8t, int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
     struct z8t_t z8t;
     z8t_init(&z8t, argc, argv);
-    z8t_run(&z8t, 0);
+    uint32_t clock_cycles = z8t_run(&z8t, 0);
     z8t_regdump(&z8t);
     z8t_memdump(&z8t, 65535);
+    fprintf(stdout, "CYCLES %08x\n", clock_cycles);
     return 0;
 }

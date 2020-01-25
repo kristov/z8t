@@ -135,11 +135,25 @@ my %COMMANDS = (
             $self->{record} = 0;
         },
     },
+    CYCLES => {
+        args => sub {
+            my ($self, $rest) = @_;
+            if ($rest =~ /^([a-zA-Z0-9]+)/) {
+                my $expected = convert($1);
+                my $cycles = $self->{cycles};
+                if ($cycles > $expected) {
+                    diag($self, "WARN: program took $cycles cycles, but $expected expected");
+                }
+            }
+        },
+        post => sub {},
+    },
     RESET => {
         args => sub {
             my ($self) = @_;
             $self->{line_buf} = [];
             $self->{src} = [];
+            $self->{cycles} = 0;
         },
         post => sub {},
     },
@@ -218,6 +232,9 @@ sub run_test {
             $self->{registers}->{$regpair}->{U} = hex($upper);
             $self->{registers}->{$regpair}->{UL} = hex($upper . $lower);
             next LINE;
+        }
+        if ($line =~ /^CYCLES\s+([a-z0-9]{8})/) {
+            $self->{cycles} = hex($1);
         }
     }
     close $fh;
