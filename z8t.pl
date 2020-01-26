@@ -211,7 +211,6 @@ sub run_test {
     my ($self) = @_;
     write_lines("test.asm", $self->{src});
     `z80asm-gnu -o test.bin test.asm`;
-    `rm test.asm`;
     my $z8t = $self->{z8t};
     `$z8t -r test.bin > test.core`;
     open(my $fh, '<', 'test.core') || die "unable to open 'test.core': $!";
@@ -238,10 +237,9 @@ sub run_test {
         }
     }
     close $fh;
-    if (!$self->{keep_core}) {
+    if (!$self->{keep}) {
+        `rm test.asm`;
         `rm test.core`;
-    }
-    if (!$self->{keep_bin}) {
         `rm test.bin`;
     }
 }
@@ -352,10 +350,7 @@ sub get_args {
     };
     for my $arg (@ARGV) {
         if ($arg =~ /^-k/) {
-            $args->{keep_core} = 1;
-        }
-        elsif ($arg =~ /^-b/) {
-            $args->{keep_bin} = 1;
+            $args->{keep} = 1;
         }
         else {
             push @{$args->{test_files}}, $arg;
