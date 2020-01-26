@@ -211,7 +211,7 @@ sub run_test {
     my ($self) = @_;
     write_lines("test.asm", $self->{src});
     `z80asm-gnu -o test.bin test.asm`;
-    my $z8t = $self->{z8t};
+    my $z8t = $self->{args}->{z8t};
     `$z8t -r test.bin > test.core`;
     open(my $fh, '<', 'test.core') || die "unable to open 'test.core': $!";
     LINE: while (my $line = <$fh>) {
@@ -237,7 +237,7 @@ sub run_test {
         }
     }
     close $fh;
-    if (!$self->{keep}) {
+    if (!$self->{args}->{keep}) {
         `rm test.asm`;
         `rm test.core`;
         `rm test.bin`;
@@ -247,10 +247,8 @@ sub run_test {
 sub run_test_file {
     my ($args, $test_file, $quiet) = @_;
     my $self = {
-        keep_core => $args->{keep_core},
-        keep_bin => $args->{keep_bin},
+        args => $args,
         exit => 0,
-        z8t => $args->{z8t},
         quiet => $quiet,
         line => 0,
         src => [],
