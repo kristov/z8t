@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 use FindBin;
+use Getopt::Long;
 
 my %REG2REGPAIR = (
     A => ['AF', 'U'],
@@ -207,12 +208,25 @@ sub diag {
     }
 }
 
+sub assemble {
+    my ($self, $asm_file, $bin_file) = @_;
+    my $cmd = $self->{args}->{asm};
+    $cmd =~ s/<ASM>/$asm_file/;
+    $cmd =~ s/<BIN>/$bin_file/;
+    `$cmd`; # todo: check for errors etc
+}
+
+sub runbin {
+    my ($self, $bin_file, $core_file) = @_;
+    my $cmd = $self->{args}->{z8t};
+    `$cmd -r $bin_file > $core_file`;
+}
+
 sub run_test {
     my ($self) = @_;
     write_lines("test.asm", $self->{src});
-    `z80asm-gnu -o test.bin test.asm`;
-    my $z8t = $self->{args}->{z8t};
-    `$z8t -r test.bin > test.core`;
+    assemble($self, 'test.asm', 'test.bin');
+    runbin($self, 'test.bin', 'test.core');
     open(my $fh, '<', 'test.core') || die "unable to open 'test.core': $!";
     LINE: while (my $line = <$fh>) {
         if ($line =~ /^([a-z0-9]+): ([a-z0-9\s]+)/) {
@@ -341,26 +355,44 @@ sub command_post {
     $COMMANDS{$command}->{post}->($self);
 }
 
+sub print_help {
+    print "Usage: $0 [--keep][--asm=<assembler>][--help] <test1> <test2> ..\n\n";
+    print "  Run one or more .z8t test scripts and report on results.\n\n";
+    print "  --keep (-k):\n";
+    print "      Keep the .asm, .bin and .core files after compliation.\n\n";
+    print "  --asm=<assembler>:\n";
+    print "      Specifiy an assembler to use for compliation.\n\n";
+}
+
 sub get_args {
     my $args = {
-        keep_core => 0,
+        keep => 0,
         test_files => [],
     };
+    GetOptions(
+        $args,
+        'keep',     # keep .asm, .bin and .core files after compliation
+        'asm=s',    # the assembler to use
+        'z8t=s',    # location of the z8t binary
+        'help',     # help
+    );
+    if (!$args->{z8t}) {
+        $args->{z8t} = sprintf("%s/z8t", $FindBin::Bin);
+    }
+    if (!$args->{asm}) {
+        $args->{asm} = 'z80asm -o ${BIN} ${ASM}';
+    }
     for my $arg (@ARGV) {
-        if ($arg =~ /^-k/) {
-            $args->{keep} = 1;
-        }
-        else {
-            push @{$args->{test_files}}, $arg;
-        }
+        push @{$args->{test_files}}, $arg;
     }
     return $args;
 }
 
 sub main {
     my ($args) = @_;
-    if (!$args->{z8t}) {
-        $args->{z8t} = sprintf("%s/z8t", $FindBin::Bin);
+    if ($args->{help}) {
+        print_help();
+        exit 0;
     }
     my $quiet = (scalar(@{$args->{test_files}}) > 1) ? 1 : 0;
     for my $test_file (@{$args->{test_files}}) {
@@ -368,6 +400,4 @@ sub main {
     }
 }
 
-my $args = get_args();
-
-exit main($args);
+exit main(get_args());
