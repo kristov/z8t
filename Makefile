@@ -1,13 +1,16 @@
 CC=gcc
 CFLAGS=-Wall -Werror -ggdb
-Z80EXT_LOC=/home/ceade/build/z80ex
 
-INCLUDE=-I. -I$(Z80EXT_LOC)/include
+INCLUDE=-I. -Iz80ex/include
 
 all: z8t
 
-z8t: z8t.c
-	$(CC) $(CFLAGS) $(INCLUDE) -o $@ $< $(Z80EXT_LOC)/z80ex.o
+z8t: z8t.c z80ex/z80ex.o
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ $< z80ex/z80ex.o
+
+z80ex/z80ex.o:
+	cd z80ex/ && mkdir -p lib && make
 
 clean:
 	rm -f z8t
+	cd z80ex/ && make clean
