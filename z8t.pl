@@ -256,7 +256,7 @@ sub run_test {
         `rm test.core`;
         `rm test.bin`;
     }
-    if ($self->{registers}->{SP}->{UL} !== 0xffff) {
+    if ($self->{registers}->{SP}->{UL} != 0xffff) {
         diag($self, sprintf("WARN: the stack looks pooped: 0x%04x", $self->{registers}->{SP}->{UL}));
     }
 }
