@@ -209,11 +209,11 @@ sub diag {
 }
 
 sub assemble {
-    my ($self, $asm_file, $bin_file) = @_;
+    my ($self, $asm_file, $bin_file, $lst_file) = @_;
     my $cmd = $self->{args}->{asm};
     $cmd =~ s/<ASM>/$asm_file/;
     $cmd =~ s/<BIN>/$bin_file/;
-    `$cmd`; # todo: check for errors etc
+    `z80asm-gnu -L -o $bin_file $asm_file > $lst_file 2>&1`;
 }
 
 sub runbin {
@@ -225,7 +225,7 @@ sub runbin {
 sub run_test {
     my ($self) = @_;
     write_lines("test.asm", $self->{src});
-    assemble($self, 'test.asm', 'test.bin');
+    assemble($self, 'test.asm', 'test.bin', 'test.lst');
     runbin($self, 'test.bin', 'test.core');
     open(my $fh, '<', 'test.core') || die "unable to open 'test.core': $!";
     LINE: while (my $line = <$fh>) {
@@ -255,6 +255,7 @@ sub run_test {
         `rm test.asm`;
         `rm test.core`;
         `rm test.bin`;
+        `rm test.lst`;
     }
     if ($self->{registers}->{SP}->{UL} != 0xffff) {
         diag($self, sprintf("WARN: the stack looks pooped: 0x%04x", $self->{registers}->{SP}->{UL}));
