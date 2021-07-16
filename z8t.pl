@@ -210,10 +210,7 @@ sub diag {
 
 sub assemble {
     my ($self, $asm_file, $bin_file, $lst_file) = @_;
-    my $cmd = $self->{args}->{asm};
-    $cmd =~ s/<ASM>/$asm_file/;
-    $cmd =~ s/<BIN>/$bin_file/;
-    `z80asm-gnu -L -o $bin_file $asm_file > $lst_file 2>&1`;
+    `z80asm-gnu -L$lst_file -o$bin_file -i$asm_file`;
 }
 
 sub runbin {
@@ -360,12 +357,10 @@ sub command_post {
 }
 
 sub print_help {
-    print "Usage: $0 [--keep][--asm=<assembler>][--help] <test1> <test2> ..\n\n";
+    print "Usage: $0 [--keep] [--help] <test1> <test2> ..\n\n";
     print "  Run one or more .z8t test scripts and report on results.\n\n";
     print "  --keep (-k):\n";
-    print "      Keep the .asm, .bin and .core files after compliation.\n\n";
-    print "  --asm=<assembler>:\n";
-    print "      Specifiy an assembler to use for compliation.\n\n";
+    print "      Keep the .asm, .lst, .bin and .core files after compliation.\n\n";
 }
 
 sub get_args {
@@ -376,15 +371,11 @@ sub get_args {
     GetOptions(
         $args,
         'keep',     # keep .asm, .bin and .core files after compliation
-        'asm=s',    # the assembler to use
         'z8t=s',    # location of the z8t binary
         'help',     # help
     );
     if (!$args->{z8t}) {
         $args->{z8t} = sprintf("%s/z8t", $FindBin::Bin);
-    }
-    if (!$args->{asm}) {
-        $args->{asm} = 'z80asm -o ${BIN} ${ASM}';
     }
     for my $arg (@ARGV) {
         push @{$args->{test_files}}, $arg;
